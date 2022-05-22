@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <link href="https://chr15m.github.io/minimal-stylesheet/minimal.css" rel="stylesheet">
+    </head>
+    <body>
+    <div id="options" class="container">
+        <form id="form">  
+            <label for="numTasks">Anzahl der Aufgaben:</label>
+            <input type="number" id="numTasks" value="10" min="1" max="50">   
+            <label for="numDigits">Ziffern der Zahlen:</label>
+            <input type="number" id="numDigits" value="2" min="1" max="7">
+            <label for="timeInput">Zeit pro Aufgabe (s):</label>
+            <input id="timeInput" type="range" value="10" min="1" max="60" oninput="amount.value=timeInput.value">
+            <input id="amount" type="number" step="1" value="10" min="1" max="60" oninput="timeInput.value=amount.value"><br>
+
+            <label for="segs">Segmente pro Aufgabe:</label>
+            <input id="segs" type="range" value="2" min="1" max="10" oninput="segs2.value=segs.value">
+            <input id="segs2" type="number" value="2" min="1" max="10" oninput="segs.value=segs2.value"><br>
+
+            <input type="checkbox" id="rechenartaddieren" name="rechenartaddieren" value="addieren" checked>
+            <label for="rechenartaddieren"> Addieren</label><br>
+            <input type="checkbox" id="rechenartsubtrahieren" name="rechenartsubtrahieren" value="subtrahieren" checked>
+            <label for="rechenartminus"> Subtrahieren </label><br>
+            <input type="checkbox" id="rechenartmultiplizieren" name="rechenartmultiplizieren" value="multiplizieren" checked>
+            <label for="rechenartmultiplizieren"> Multiplizieren</label><br>
+            <input type="checkbox" id="rechenartdividieren" name="rechenartdividieren" value="dividieren" checked>
+            <label for="rechenartdividieren"> Dividieren </label><br><br>
+
+            <input type="submit" value="LOS">
+        </form>
+    </div>
+    <div id="content" class="container">
+        <h1 id="task-label"></h1>
+        <p id="timer"></p>
+    </div>
+
+    <div id="solutions" style="display: none;" class="container">
+        <h1>Lösungen</h1>
+        <p id="solution"></p>
+    </div>
+
+    
+    
+    </body>
+
+    <script>
+
+        document.getElementById("form").addEventListener('submit', function(ev) {
+        ev.preventDefault();
+        los(ev);
+        }, false);
+
+
+        function createDigit(numDigits) {
+            var range_start = 1
+            var range_end = (10**numDigits)-1
+            
+            var num = Math.floor(Math.random() * range_end);
+            if(Math.random() > 0.75) {
+                num %= 10;
+            }
+            return num;
+        }
+
+        function createOperator(allowedOperators) {options
+            return allowedOperators[Math.round(Math.random() * allowedOperators.length)];
+        }
+
+        function createExpressionPart(allowedOperators, numDigits) {
+            var part = "";
+            var solution = "NaN";
+            while(!solutionIsOK(solution)) {
+                part = createDigit(numDigits);
+                part += createOperator(allowedOperators);
+                part += createDigit(numDigits);
+
+                try {
+                    solution = eval(part);
+                } catch(e) {
+                    console.log(part + " " + e);
+                    solution = "NaN";
+                }
+            }
+
+            return part;
+        }
+
+        function createRandomExpression(allowedOperators, numDigits) {
+            if(Math.random() < 0.9) {
+                return createExpressionPart(allowedOperators, numDigits);
+            } else {
+                return createDigit(numDigits);
+            }
+        }
+
+        function createExpression(allowedOperators, numDigits, segments) {
+            var expression = "";
+            for (var i = 0; i < segments; i++) {
+                if(expression.length == 0) {
+                    expression += createRandomExpression(allowedOperators, numDigits);
+                } else {
+                    var e = String(createRandomExpression(allowedOperators, numDigits, segments));
+                    if(e.includes("+") || e.includes("-") || e.includes("*") || e.includes("/")) {
+                        expression += createOperator(allowedOperators) + '(' + e + ')';
+                    } else {
+                        expression += e;
+                    }
+                }
+            }
+            return expression;
+        }
+
+        function solutionIsOK(number) {
+            let isNotNull = number != 0;
+            return isNotNull && !number.toString().includes('.') && number < 50 && number > -20;
+        }
+
+        function taskOkay(task) {
+            //check if task contains at least one operator
+            let containsOperator = task.includes('+') || task.includes('-') || task.includes('*') || task.includes('/');
+            return containsOperator;
+        }
+
+
+        function los(e) {
+            var numTasks = document.getElementById("numTasks").value;
+            var numDigits = document.getElementById("numDigits").value;
+            var time = document.getElementById("timeInput").value;
+            var rechenart = [];
+            if (document.getElementById("rechenartaddieren").checked) {
+                rechenart.push("+");
+            }
+            if (document.getElementById("rechenartsubtrahieren").checked) {
+                rechenart.push("-");
+            }
+            if (document.getElementById("rechenartmultiplizieren").checked) {
+                rechenart.push("*");
+            }
+            if (document.getElementById("rechenartdividieren").checked) {
+                rechenart.push("/");
+            }
+
+            var segmentsPerTask = document.getElementById("segs").value;
+
+            
+            //evaluate tasks in try catch and save solutions    
+            var tasks = []
+            var solutions = [];
+
+            while(solutions.length < numTasks) {
+                var task = createExpression(rechenart, numDigits, segmentsPerTask);
+                try {
+                    var solution = eval(task);
+                    if(!tasks.includes(task) && solutionIsOK(solution) && taskOkay(task)) {
+                        tasks.push(task);
+                        solutions.push(solution);
+                    }
+                } catch(e) {
+                    console.log(e);
+                }
+            }
+
+            console.log(tasks);
+            console.log(solutions);
+
+            document.getElementById("options").style.display = "none";
+            document.getElementById("content").style.display = "flex";
+
+            //set timer for each task
+
+            function startClock() {
+                var now = new Date().getTime();
+                var distance = countDownDate - now;
+                var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                document.getElementById("timer").innerHTML = seconds + "s ";
+                if (distance < 0) {
+                    clearInterval(x);
+                    document.getElementById("timer").innerHTML = "EXPIRED";
+                }
+            }
+
+
+            var tasksCopy = tasks.slice();
+            var solutionsCopy = solutions.slice();
+
+            var task = tasks.shift();
+            var solution = solutions.shift();
+            document.getElementById("task-label").innerHTML = task;
+
+
+            var countDownDate = new Date().getTime() + time*1000;
+
+            // Update the count down every 1 second
+            var x = setInterval(startClock, 10);
+
+            var timer = setInterval(function() {
+                //set timer to update label 
+                var timeLabel = document.getElementById("timer");
+                countDownDate = new Date().getTime() + time*1000;
+                clearInterval(x);
+                x = setInterval(startClock, 10);
+
+                var task = tasks.shift();
+                var solution = solutions.shift();
+                document.getElementById("task-label").innerHTML = task;
+                if(tasks.length == 0) {
+                    clearInterval(timer);
+                    clearInterval(x);
+                    document.getElementById("content").style.display = "none";
+                    document.getElementById("solutions").style.display = "flex";
+
+                    //create task soltution pair strings
+                    var taskSolutionPairs = [];
+                    for(var i = 0; i < tasksCopy.length; i++) {
+                        taskSolutionPairs.push(tasksCopy[i] + " = " + solutionsCopy[i]);
+                    }
+
+
+                    document.getElementById("solution").innerHTML = taskSolutionPairs.join("<br>");
+                }
+            }, time*1000);
+
+
+        }
+    </script> 
+
+    <style>
+        html {
+            font-family: sans-serif;
+            background-color: rgb(187, 187, 187);
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</html> 
